@@ -118,6 +118,7 @@ public class ClientMain {
     Metrics mainMetrics = new Metrics();
     ConnectionManager mainConnMgr = new ConnectionManager(WS_URI, mainMetrics);
 
+    // 1. Start the generator - concurrent with the consumer
     Thread mainGenerator = new Thread(new MessageGenerator(queues, TOTAL_MESSAGES),
         "main-phase-producer");
     mainGenerator.start();
@@ -125,14 +126,17 @@ public class ClientMain {
 
     mainMetrics.start();
 
+    // 2. Start the consumer - concurrent with the generator
     ExecutorService mainExecutor = Executors.newFixedThreadPool(NUM_SENDERS);
     for (int workerId = 0; workerId < NUM_SENDERS; workerId++) {
       int roomId = workerId % NUM_ROOMS + 1;
       mainExecutor.submit(new SenderWorker(roomId, queues.get(roomId), mainConnMgr, mainMetrics));
     }
 
+    // 3. Wait for the generator to finish
     mainGenerator.join();
 
+    // 4. Put poison messages
     for (int workerId = 0; workerId < NUM_SENDERS; workerId++) {
       int roomId = workerId % NUM_ROOMS + 1;
       queues.get(roomId).put(ChatMessage.POISON);
