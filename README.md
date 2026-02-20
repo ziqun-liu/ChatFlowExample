@@ -102,3 +102,68 @@ exit
 
 
 
+
+## Architecture
+┌─────────────────────────────────────────────────────────────────┐
+│                         CLIENT (JVM)                            │
+│                                                                 │
+│  ┌─────────────────┐      ┌──────────────────────────────────┐  │
+│  │ MessageGenerator│      │         Warmup Phase             │  │
+│  │  (1 thread)     │─────▶│  32 threads × 1000 msgs          │  │
+│  │                 │      │  1 shared queue                  │  │
+│  │  500K messages  │      │  32 endpoints (closed after)     │  │
+│  │  50 msg pool    │      └──────────────────────────────────┘  │
+│  │  20 rooms       │                                            │
+│  │  90/5/5 dist.   │      ┌──────────────────────────────────┐  │
+│  │                 │─────▶│         Main Phase               │  │
+│  └─────────────────┘      │  120 SenderWorker threads        │  │
+│                           │  20 per-room BlockingQueues      │  │
+│                           │  6 workers per room              │  │
+│                           └────────────┬─────────────────────┘  │
+│                                        │                        │
+│                           ┌────────────▼─────────────────────┐  │
+│                           │       ConnectionManager          │  │
+│                           │  pool: roomId →                  │  │
+│                           │    BlockingQueue<ClientEndpoint> │  │
+│                           │  max 6 endpoints per room        │  │
+│                           │  conn / release / reconn         │  │
+│                           └────────────┬─────────────────────┘  │
+│                                        │                        │
+│                           ┌────────────▼─────────────────────┐  │
+│                           │        ClientEndpoint            │  │
+│                           │  sendAndWait(messageId, json)    │  │
+│                           │  CountDownLatch for round-trip   │  │
+│                           │  onMessage: match messageId      │  │
+│                           └────────────┬─────────────────────┘  │
+│                                        │                        │
+│                           ┌────────────▼─────────────────────┐  │
+│                           │           Metrics                │  │
+│                           │  success / failure / latency     │  │
+│                           │  per-room throughput             │  │
+│                           │  mean/median/p95/p99/min/max     │  │
+│                           └──────────────────────────────────┘  │
+└─────────────────────────────┬───────────────────────────────────┘
+│  WebSocket ws://host:8080/server/chat/{roomId}
+│  (persistent connections, JSON messages)
+┌─────────────────────────────▼───────────────────────────────────┐
+│                    SERVER (Tomcat on EC2)                        │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   ServerEndpoint                         │   │
+│  │  /chat/{roomId}                                          │   │
+│  │                                                          │   │
+│  │  rooms: ConcurrentHashMap<roomId, Set<Session>>          │   │
+│  │                                                          │   │
+│  │  onMessage:                                              │   │
+│  │    1. parse JSON → ChatMessageDto                        │   │
+│  │    2. validate (userId / username / message /            │   │
+│  │                 timestamp / messageType)                 │   │
+│  │    3a. valid   → ChatResponse(OK)  → broadcast to room   │   │
+│  │    3b. invalid → ChatResponse(ERROR) → sender only       │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │                   HealthServlet                          │   │
+│  │  GET /health → 200 OK                                    │   │
+│  └──────────────────────────────────────────────────────────┘   │
+└─────────────────────────────────────────────────────────────────┘
