@@ -58,6 +58,9 @@ public class ClientEndpoint {
   }
 
   public String sendAndWait(String messageId, String json, long timeoutMs)
+      /*
+      Await the message round trip
+       */
       throws IOException, InterruptedException {
     this.expectedMessageId = messageId;
     this.clientLatch = new CountDownLatch(1);

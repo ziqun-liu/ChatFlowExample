@@ -9,74 +9,107 @@ public class Metrics {
   private final AtomicLong sendAttempts = new AtomicLong(0);
   private final AtomicLong connectionCount = new AtomicLong(0);
   private final AtomicLong reconnectionCount = new AtomicLong(0);
+  private final AtomicLong retrySuccessCount = new AtomicLong(0);
 
   private volatile long startNs = 0L;
   private volatile long endNs = 0L;
 
   public void start() {
-    startNs = System.nanoTime();
-    endNs = 0L;
+    this.startNs = System.nanoTime();
+    this.endNs = 0L;
   }
 
   public void stop() {
-    endNs = System.nanoTime();
+    this.endNs = System.nanoTime();
   }
 
   public void recordSuccess() {
-    successCount.incrementAndGet();
+    this.successCount.incrementAndGet();
   }
 
   public void recordFailure() {
-    failureCount.incrementAndGet();
+    this.failureCount.incrementAndGet();
   }
 
   public void recordSendAttempt() {
-    sendAttempts.incrementAndGet();
+    this.sendAttempts.incrementAndGet();
   }
 
   public void recordSendAttempts(long n) {
-    sendAttempts.addAndGet(n);
+    this.sendAttempts.addAndGet(n);
   }
 
   public void recordConnection() {
-    connectionCount.incrementAndGet();
+    this.connectionCount.incrementAndGet();
   }
 
   public void recordReconnection() {
-    reconnectionCount.incrementAndGet();
+    this.reconnectionCount.incrementAndGet();
   }
 
-  public long getSuccessCount() { return successCount.get(); }
-  public long getFailureCount() { return failureCount.get(); }
-  public long getSendAttempts() { return sendAttempts.get(); }
-  public long getConnectionCount() { return connectionCount.get(); }
-  public long getReconnectionCount() { return reconnectionCount.get(); }
-  public long getTotalProcessed() { return successCount.get() + failureCount.get(); }
+  public void recordRetrySuccess() {
+    this.retrySuccessCount.incrementAndGet();
+  }
+
+  public long getSuccessCount() {
+    return this.successCount.get();
+  }
+
+  public long getFailureCount() {
+    return this.failureCount.get();
+  }
+
+  public long getSendAttempts() {
+    return this.sendAttempts.get();
+  }
+
+  public long getConnectionCount() {
+    return this.connectionCount.get();
+  }
+
+  public long getReconnectionCount() {
+    return this.reconnectionCount.get();
+  }
+
+  public long getTotalProcessed() {
+    return this.successCount.get() + this.failureCount.get();
+  }
+
+  public long getRetrySuccessCount() {
+    return this.retrySuccessCount.get();
+  }
 
   public double elapsedSeconds() {
-    long end = (endNs == 0L) ? System.nanoTime() : endNs;
-    if (startNs == 0L) return 0.0;
-    return (end - startNs) / 1_000_000_000.0;
+    long end = (this.endNs == 0L) ? System.nanoTime() : this.endNs;
+    if (this.startNs == 0L) {
+      return 0.0;
+    }
+    return (end - this.startNs) / 1_000_000_000.0;
   }
 
   public double throughput() {
     double s = elapsedSeconds();
-    if (s <= 0.0) return 0.0;
-    return successCount.get() / s;
+    if (s <= 0.0) {
+      return 0.0;
+    }
+    return this.successCount.get() / s;
   }
 
   public void summary(String phase) {
     System.out.println("========================================");
     System.out.println("  " + phase);
     System.out.println("========================================");
-    System.out.printf("  Successful messages : %,d%n", successCount.get());
-    System.out.printf("  Failed messages     : %,d%n", failureCount.get());
-    System.out.printf("  Total processed     : %,d%n", getTotalProcessed());
-    System.out.printf("  Send attempts       : %,d%n", sendAttempts.get());
-    System.out.printf("  Wall time           : %.3f seconds%n", elapsedSeconds());
-    System.out.printf("  Throughput          : %,.2f msg/s%n", throughput());
-    System.out.printf("  Total connections   : %,d%n", connectionCount.get());
-    System.out.printf("  Reconnections       : %,d%n", reconnectionCount.get());
+    System.out.printf("  Successful messages : %,d%n", this.successCount.get());
+    System.out.printf("  - First attempt      : %,d%n",
+        successCount.get() - retrySuccessCount.get());
+    System.out.printf("  - After retry        : %,d%n", retrySuccessCount.get());
+    System.out.printf("  Failed messages     : %,d%n", this.failureCount.get());
+    System.out.printf("  Total processed     : %,d%n", this.getTotalProcessed());
+    System.out.printf("  Send attempts       : %,d%n", this.sendAttempts.get());
+    System.out.printf("  Wall time           : %.3f seconds%n", this.elapsedSeconds());
+    System.out.printf("  Throughput          : %,.2f msg/s%n", this.throughput());
+    System.out.printf("  Total connections   : %,d%n", this.connectionCount.get());
+    System.out.printf("  Reconnections       : %,d%n", this.reconnectionCount.get());
     System.out.println("========================================");
   }
 }
