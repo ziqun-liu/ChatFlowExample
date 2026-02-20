@@ -1,8 +1,7 @@
-package assign1.connection;
+package assign1.client.connection;
 
-import assign1.ClientEndpoint;
-import assign1.ClientMain;
-import assign1.metrics.Metrics;
+import assign1.client.ClientEndpoint;
+import assign1.client.metrics.Metrics;
 import java.io.IOException;
 import java.net.URI;
 import java.util.concurrent.BlockingQueue;

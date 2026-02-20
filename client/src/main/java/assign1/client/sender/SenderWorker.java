@@ -1,9 +1,10 @@
-package assign1.sender;
+package assign1.client.sender;
 
-import assign1.ClientEndpoint;
-import assign1.connection.ConnectionManager;
-import assign1.metrics.Metrics;
-import assign1.model.ChatMessage;
+import assign1.client.ClientEndpoint;
+import assign1.client.connection.ConnectionManager;
+import assign1.client.metrics.Metrics;
+import assign1.client.model.ChatMessage;
+import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
@@ -58,6 +59,10 @@ public class SenderWorker implements Runnable {
   }
 
   private String send(ClientEndpoint endpoint, ChatMessage msg) throws Exception {
+    if (!endpoint.isOpen()) {
+      throw new IOException("Connection dropped");
+    }
+
     return endpoint.sendAndWait(msg.getMessageId(), msg.toJson(), 5000);
   }
 
