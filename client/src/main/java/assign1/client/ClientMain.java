@@ -1,10 +1,10 @@
-package assign1;
+package assign1.client;
 
-import assign1.connection.ConnectionManager;
-import assign1.metrics.Metrics;
-import assign1.model.ChatMessage;
-import assign1.producer.MessageGenerator;
-import assign1.sender.SenderWorker;
+import assign1.client.connection.ConnectionManager;
+import assign1.client.metrics.Metrics;
+import assign1.client.model.ChatMessage;
+import assign1.client.producer.MessageGenerator;
+import assign1.client.sender.SenderWorker;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
@@ -13,8 +13,6 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.TimeUnit;
-import javax.websocket.ContainerProvider;
-import javax.websocket.WebSocketContainer;
 
 public class ClientMain {
 

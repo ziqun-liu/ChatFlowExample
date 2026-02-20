@@ -1,5 +1,8 @@
-package assign1.websocket;
+package assign1.server.websocket;
 
+import assign1.server.model.ChatMessageDto;
+import assign1.server.model.ChatResponse;
+import java.util.List;
 import java.util.logging.Logger;
 import javax.websocket.*;
 import javax.websocket.server.PathParam;
@@ -41,12 +44,30 @@ public class ServerEndpoint {
 
     logger.info("message received: session=" + session.getId() + ", room=" + roomId);
 
+    ChatMessageDto chatMsg;
+
+    // Serilize
+    try {
+      chatMsg = ChatMessageDto.fromJson(message);
+    } catch (Exception e) {
+      session.getBasicRemote()
+          .sendText(new ChatResponse(List.of("Invalid JSON format: " + e.getMessage())).toJson());
+      return;
+    }
+
+    // Validate
+    List<String> errors = chatMsg.validate();
+    if (!errors.isEmpty()) {
+      session.getBasicRemote().sendText(new ChatResponse(errors).toJson());
+      return;
+    }
+
     // One session receives a message and broadcasts it to all sessions in the same room.
     // Note that this is to broadcast back to the client.
     for (Session s : rooms.get(roomId)) {
       if (s.isOpen()) {
         synchronized (s) {
-          s.getBasicRemote().sendText(message);
+          s.getBasicRemote().sendText(new ChatResponse(chatMsg).toJson());
         }
       }
     }

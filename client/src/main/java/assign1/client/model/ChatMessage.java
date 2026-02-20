@@ -1,4 +1,4 @@
-package assign1.model;
+package assign1.client.model;
 
 import com.google.gson.Gson;
 import java.time.Instant;

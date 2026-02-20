@@ -1,4 +1,4 @@
-package assign1;
+package assign1.client;
 
 import java.io.IOException;
 import java.util.concurrent.CountDownLatch;

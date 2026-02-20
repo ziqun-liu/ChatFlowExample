@@ -1,6 +1,6 @@
-package assign1.producer;
+package assign1.client.producer;
 
-import assign1.model.ChatMessage;
+import assign1.client.model.ChatMessage;
 import java.util.Map;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.ThreadLocalRandom;

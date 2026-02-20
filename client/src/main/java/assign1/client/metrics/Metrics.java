@@ -1,4 +1,4 @@
-package assign1.metrics;
+package assign1.client.metrics;
 
 import java.util.concurrent.atomic.AtomicLong;
 
