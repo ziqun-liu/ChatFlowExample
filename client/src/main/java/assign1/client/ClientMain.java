@@ -145,6 +145,8 @@ public class ClientMain {
     mainGenerator.join();
     System.out.println("Main Phase completed");
     mainMetrics.summary("Main Phase");
+    mainMetrics.latencyStats();
+    mainMetrics.roomThroughput();
 
   }
 

@@ -72,9 +72,13 @@ public class SenderWorker implements Runnable {
 
       try {
 
+        long startMs = System.currentTimeMillis();
         String response = this.send(endpoint, msg);
         if (response != null) {
+          long latencyMs = System.currentTimeMillis() - startMs;
           metrics.recordSuccess();
+          metrics.recordLatency(latencyMs);
+          metrics.recordRoomSuccess(roomId);
           if (attempt > 0) {
             metrics.recordRetrySuccess();
           }

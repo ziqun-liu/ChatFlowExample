@@ -1,5 +1,9 @@
 package assign1.client.metrics;
 
+import java.util.Arrays;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.atomic.AtomicLong;
 
 public class Metrics {
@@ -10,6 +14,9 @@ public class Metrics {
   private final AtomicLong connectionCount = new AtomicLong(0);
   private final AtomicLong reconnectionCount = new AtomicLong(0);
   private final AtomicLong retrySuccessCount = new AtomicLong(0);
+  private final ConcurrentLinkedQueue<Long> latencies = new ConcurrentLinkedQueue<>();
+  private final ConcurrentHashMap<Integer, AtomicLong> roomSuccess = new ConcurrentHashMap<>();
+
 
   private volatile long startNs = 0L;
   private volatile long endNs = 0L;
@@ -79,6 +86,14 @@ public class Metrics {
     return this.retrySuccessCount.get();
   }
 
+  public void recordLatency(long latencyMs) {
+    latencies.add(latencyMs);
+  }
+
+  public void recordRoomSuccess(int roomId) {
+    roomSuccess.computeIfAbsent(roomId, k -> new AtomicLong(0)).incrementAndGet();
+  }
+
   public double elapsedSeconds() {
     long end = (this.endNs == 0L) ? System.nanoTime() : this.endNs;
     if (this.startNs == 0L) {
@@ -93,6 +108,36 @@ public class Metrics {
       return 0.0;
     }
     return this.successCount.get() / s;
+  }
+
+  public void latencyStats() {
+    long[] sorted = latencies.stream().mapToLong(Long::longValue).sorted().toArray();
+    if (sorted.length == 0) {
+      System.out.println("  No latency data.");
+      return;
+    }
+    double mean = Arrays.stream(sorted).average().orElse(0);
+    long median = sorted[sorted.length / 2];
+    long p95 = sorted[(int) (sorted.length * 0.95)];
+    long p99 = sorted[(int) (sorted.length * 0.99)];
+    long min = sorted[0];
+    long max = sorted[sorted.length - 1];
+
+    System.out.printf("  Mean latency        : %.2f ms%n", mean);
+    System.out.printf("  Median latency      : %d ms%n", median);
+    System.out.printf("  p95 latency         : %d ms%n", p95);
+    System.out.printf("  p99 latency         : %d ms%n", p99);
+    System.out.printf("  Min latency         : %d ms%n", min);
+    System.out.printf("  Max latency         : %d ms%n", max);
+  }
+
+  public void roomThroughput() {
+    double elapsed = elapsedSeconds();
+    System.out.println("  Per-room throughput:");
+    roomSuccess.entrySet().stream()
+        .sorted(Map.Entry.comparingByKey())
+        .forEach(e -> System.out.printf("    Room %2d: %,.2f msg/s%n",
+            e.getKey(), e.getValue().get() / elapsed));
   }
 
   public void summary(String phase) {
