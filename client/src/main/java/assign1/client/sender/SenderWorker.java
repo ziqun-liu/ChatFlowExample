@@ -4,6 +4,8 @@ import assign1.client.ClientEndpoint;
 import assign1.client.connection.ConnectionManager;
 import assign1.client.metrics.Metrics;
 import assign1.client.model.ChatMessage;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import java.io.IOException;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
@@ -76,7 +78,8 @@ public class SenderWorker implements Runnable {
         String response = this.send(endpoint, msg);
         if (response != null) {
           long latencyMs = System.currentTimeMillis() - startMs;
-          metrics.recordSuccess();
+          int statusCode = "OK".equals(parseStatus(response)) ? 200 : 400;
+          metrics.recordSuccess(statusCode);
           metrics.recordLatency(latencyMs);
           metrics.recordRoomSuccess(roomId);
           if (attempt > 0) {
@@ -104,6 +107,15 @@ public class SenderWorker implements Runnable {
 
     metrics.recordFailure();
     return endpoint;
+  }
+
+  private String parseStatus(String responseJson) {
+    try {
+      JsonObject obj = JsonParser.parseString(responseJson).getAsJsonObject();
+      return obj.get("status").getAsString();
+    } catch (Exception e) {
+      return "UNKNOWN";
+    }
   }
 
 

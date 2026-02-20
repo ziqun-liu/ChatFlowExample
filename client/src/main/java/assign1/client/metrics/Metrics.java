@@ -34,6 +34,10 @@ public class Metrics {
     this.successCount.incrementAndGet();
   }
 
+  public void recordSuccess(int statusCode) {
+    this.successCount.incrementAndGet();
+  }
+
   public void recordFailure() {
     this.failureCount.incrementAndGet();
   }
@@ -134,10 +138,9 @@ public class Metrics {
   public void roomThroughput() {
     double elapsed = elapsedSeconds();
     System.out.println("  Per-room throughput:");
-    roomSuccess.entrySet().stream()
-        .sorted(Map.Entry.comparingByKey())
-        .forEach(e -> System.out.printf("    Room %2d: %,.2f msg/s%n",
-            e.getKey(), e.getValue().get() / elapsed));
+    roomSuccess.entrySet().stream().sorted(Map.Entry.comparingByKey()).forEach(
+        e -> System.out.printf("    Room %2d: %,.2f msg/s%n", e.getKey(),
+            e.getValue().get() / elapsed));
   }
 
   public void summary(String phase) {
