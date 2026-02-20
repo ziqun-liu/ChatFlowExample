@@ -8,18 +8,15 @@ directly without being returned to the connection pool.
 
 ## Main Phase
 
-In the main phase, there is a map of `20` queues keyed by roomId `(1–20)`. A single
-ConnectionManager
-instance manages all endpoint sessions via a per-room connection pool. The message generator runs
-concurrently with the consumers on a separate thread, filling the queues with `500,000` messages;
-the
-number of messages per queue is not necessarily equal across rooms. A `120-thread` thread pool is
-created, with each thread assigned to a room (`6` workers per room). Each worker obtains an endpoint
-from the ConnectionManager and continuously polls its room's queue, sending messages to the server
-until it dequeues a poison message, at which point it exits. After the generator finishes and all
-normal messages have been enqueued, the main thread sequentially places one poison message per
-worker (`120` total) into the corresponding room queues, guaranteeing every worker eventually
-terminates.
+In the main phase, there is a map of `20` queues keyed by roomId `(1–20)`. There is one
+ConnectionManager instance that manages all endpoint sessions via a per-room connection pool. The
+message generator fills the queues with `500,000` messages, running on its own thread. Note that the
+number of messages per queue is not necessarily equal across the 20 rooms. A `120-thread` thread
+pool is created, with each thread assigned to a room (`6` workers per room). Each worker obtains an
+endpoint from the ConnectionManager and polls its room's queue, and then sends messages to the
+server until it dequeues a poison message. While the producer and consumer run concurrently, after
+the generator finishes and all normal messages have been enqueued, the main thread sequentially
+places one poison message per worker (`120` total) into the corresponding room queues.
 
 ## Retry Logic
 
@@ -38,6 +35,7 @@ message is recorded as a failure and the worker moves on.
 When a request fails, the server may be overloaded or the network is unstable. If all failed workers
 retry immediately at a fixed interval, a large number of requests would flood in simultaneously,
 further aggravating the server's load and creating a "retry storm." Exponential backoff doubles the
-waiting time between each retry (`100ms, 200ms, 400ms, 800ms, 1600ms`), naturally spreading out retry
+waiting time between each retry (`100ms, 200ms, 400ms, 800ms, 1600ms`), naturally spreading out
+retry
 requests over time, giving the server a window to recover, while also reducing wasted network
 bandwidth from futile retries.
