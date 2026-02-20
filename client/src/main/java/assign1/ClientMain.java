@@ -28,8 +28,12 @@ public class ClientMain {
   private static final int QUEUE_CAPACITY = 10_000;
 
   public static void main(String[] args) throws Exception {
+    runWarmup();
+    runMainPhase();
+  }
 
-    // ============================== Warmup ==============================
+  // ============================== Warmup ==============================
+  private static void runWarmup() throws Exception {
     int warmupTotal = WARMUP_THREADS * MESSAGE_PER_THREAD;  // 32_000
     BlockingQueue<ChatMessage> sharedQueue = new LinkedBlockingQueue<>(QUEUE_CAPACITY);
 
@@ -101,8 +105,11 @@ public class ClientMain {
     warmupGenerator.join();
     System.out.println("Warmup complete.");
     warmupMetrics.summary("Warmup");
+  }
 
-    // ============================== Main Phase ==============================
+
+  // ============================== Main Phase ==============================
+  private static void runMainPhase() throws Exception {
 
     // roomId -> BlockingQueue
     Map<Integer, BlockingQueue<ChatMessage>> queues = new HashMap<>();

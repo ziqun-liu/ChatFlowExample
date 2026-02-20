@@ -1,14 +1,16 @@
 package assign1.sender;
 
 import assign1.ClientEndpoint;
-import assign1.ClientMain;
 import assign1.connection.ConnectionManager;
 import assign1.metrics.Metrics;
 import assign1.model.ChatMessage;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.TimeUnit;
 
-public class SenderWorker implements Runnable{
+public class SenderWorker implements Runnable {
+
+  private static final int MAX_RETRIES = 5;
+  private static final long BASE_BACKOFF_MS = 100;
 
   private final int roomId;
   private final BlockingQueue<ChatMessage> queue;
@@ -34,41 +36,66 @@ public class SenderWorker implements Runnable{
 
         ChatMessage msg = queue.poll(2, TimeUnit.SECONDS);
 
-        if (msg == null) {  // 2 milliseconds timeout
-          break;
-        }
-
-        if (msg == ChatMessage.POISON) {
+        if (msg == null || msg == ChatMessage.POISON) {  // 2 milliseconds timeout
           break;
         }
 
         metrics.recordSendAttempt();
-        String response = endpoint.sendAndWait(msg.getMessageId(), msg.toJson(), 5000);
-
-        if (response != null) {
-          metrics.recordSuccess();
-        } else {
-          metrics.recordFailure();
-        }
+        endpoint = sendWithRetry(endpoint, msg);
 
       }
 
     } catch (Exception e) {
-
       System.err.println("[SenderWorker room=" + roomId + "] " + e.getMessage());
-
     } finally {
 
       if (endpoint != null) {
-        try {
-          endpoint.close();
-        } catch (Exception e) {
-          throw new RuntimeException();
-        }
+        connMgr.release(endpoint, roomId);
       }
 
     }
 
   }
+
+  private String send(ClientEndpoint endpoint, ChatMessage msg) throws Exception {
+    return endpoint.sendAndWait(msg.getMessageId(), msg.toJson(), 5000);
+  }
+
+  private ClientEndpoint sendWithRetry(ClientEndpoint endpoint, ChatMessage msg)
+      throws InterruptedException {
+    for (int attempt = 0; attempt < MAX_RETRIES; attempt++) {
+
+      try {
+
+        String response = this.send(endpoint, msg);
+        if (response != null) {
+          metrics.recordSuccess();
+          if (attempt > 0) {
+            metrics.recordRetrySuccess();
+          }
+          return endpoint;
+        }
+        long backoff = BASE_BACKOFF_MS * (1L << attempt);
+        Thread.sleep(backoff);
+
+      } catch (Exception e) {  // Connection error: session closed or websocket has exception
+
+        System.err.println("[Retry " + attempt + " room=" + roomId + "]" + e.getMessage());
+        try {
+          endpoint = connMgr.reconn(endpoint, roomId);
+        } catch (Exception re) {
+          throw new RuntimeException();
+        }
+
+        long backoff = BASE_BACKOFF_MS * (1L << attempt);
+        Thread.sleep(backoff);
+
+      }
+    }
+
+    metrics.recordFailure();
+    return endpoint;
+  }
+
 
 }
